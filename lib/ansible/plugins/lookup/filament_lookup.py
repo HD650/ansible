@@ -6,29 +6,31 @@ from ansible.plugins.lookup import LookupBase
 
 try:
     from __main__ import display
+    import subprocess
+    from ansible.module_utils._text import to_text
+    import epdb
 except ImportError:
     from ansible.utils.display import Display
     display = Display()
 
 
-class LookupModile(LookupBase):
+class LookupModule(LookupBase):
     def run(self, terms, variables=None, **kwargs):
-        self._task.action = 'command'
+        display.vvv("got your argument "+str(terms))
         
-        plugin_args = {
-            "_raw_params": "uname -a", 
-            "_uses_shell": false, 
-        }
-        self._task.args.update(plugin_args)
-        if 'warn' not in self._task.args:
-            self._task.args['warn'] = C.COMMAND_WARNINGS
-        
+        command = None
+        # if no argument passed, show process table
+        if len(terms)is 0:
+            command = "ps aux"
+        elif len(terms) is 1:
+            command = "ps aux|grep " + str(terms[0])
+        else:
+            raise AnsibleError("Argument Fault: 1 string argument expect, {0} got.".format(len(terms))) 
 
-        # use command action to get the process table 
-        command_action = self._shared_loader_obj.action_loader.get('command',
-                task=self._task, connection='local', play_context=self._play_context,
-                loader=self._loader, templar=self._templar, shared_loader_obj=self._shared_loader_obj)
-         
-        result = command_action.run(task_vars=task_vars)
-
-        return result
+        display.vvv(command)
+        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        epdb.st()
+        result = p.stdout.read()
+        result = to_text(result)
+        display.vvv(result)
+        return to_text(result)
